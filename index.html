@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting to Laptop...</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 90%; }
+        button { margin-top: 15px; padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; background: #eee; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h3>Locating Laptop...</h3>
+        <p id="status">Querying cloud beacon for new Hotspot IP...</p>
+        <button onclick="resetToken()">Change Saved Token</button>
+    </div>
+
+    <script>
+        const BLOB_ID = "019f7b76-5dc1-701f-ab06-bdac0d3c0565";
+        
+        // Grabs the token from your phone's offline memory
+        function getSavedToken() {
+            let token = localStorage.getItem("sync_token");
+            if (!token) {
+                token = prompt("Enter your Hotspot Sync Secret Token:");
+                if (token) {
+                    localStorage.setItem("sync_token", token);
+                }
+            }
+            return token;
+        }
+
+        // Allows you to reset the password if you make a typo
+        function resetToken() {
+            localStorage.removeItem("sync_token");
+            location.reload();
+        }
+        
+        async function connect() {
+            let token = getSavedToken();
+            if (!token) {
+                document.getElementById('status').innerHTML = `<span style="color:red;">Token required to connect!</span>`;
+                return;
+            }
+
+            try {
+                let res = await fetch(`https://jsonblob.com/api/jsonBlob/${BLOB_ID}`);
+                let data = await res.json();
+                
+                if (data.ip) {
+                    document.getElementById('status').innerText = `Found laptop at ${data.ip}! Redirecting...`;
+                    // Redirects to your laptop using the IP from the cloud + token from offline phone memory
+                    window.location.replace(`http://${data.ip}:5000?token=${encodeURIComponent(token)}`);
+                } else {
+                    throw new Error("Invalid payload received from beacon.");
+                }
+            } catch (e) {
+                document.getElementById('status').innerHTML = `<span style="color:red;">Failed to locate PC.<br><br>Is python sync_server.py running on your laptop?</span>`;
+            }
+        }
+        
+        connect();
+    </script>
+</body>
+</html>
