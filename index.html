@@ -2,61 +2,78 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connecting to Laptop...</title>
+    <title>Connecting...</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f0f2f5; }
-        .card { background: white; padding: 20px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 90%; }
-        button { margin-top: 15px; padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; background: #eee; border-radius: 4px; }
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f0f2f5; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 85%; }
+        button { margin-top: 20px; padding: 10px 18px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 6px; }
+        button:active { background: #eee; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h3>Locating Laptop...</h3>
-        <p id="status">Querying cloud beacon for new Hotspot IP...</p>
-        <button onclick="resetToken()">Change Saved Token</button>
+        <h3 id="title">Locating Laptop...</h3>
+        <p id="status">Reading cloud beacon...</p>
+        <button onclick="resetConfig()">⚙️ Reset Saved Credentials</button>
     </div>
 
     <script>
-        const BLOB_ID = "019f7b76-5dc1-701f-ab06-bdac0d3c0565";
-        
-        // Grabs the token from your phone's offline memory
-        function getSavedToken() {
+        function getCredentials() {
+            let blobId = localStorage.getItem("sync_blob_id");
             let token = localStorage.getItem("sync_token");
-            if (!token) {
-                token = prompt("Enter your Hotspot Sync Secret Token:");
-                if (token) {
-                    localStorage.setItem("sync_token", token);
-                }
+            
+            if (!blobId || !token) {
+                blobId = prompt("Setup (1/2): Paste your Blob ID:");
+                if (!blobId) return null;
+                token = prompt("Setup (2/2): Enter your Secret Token:");
+                if (!token) return null;
+                
+                localStorage.setItem("sync_blob_id", blobId.trim());
+                localStorage.setItem("sync_token", token.trim());
             }
-            return token;
+            return { blobId, token };
         }
 
-        // Allows you to reset the password if you make a typo
-        function resetToken() {
+        function resetConfig() {
+            localStorage.removeItem("sync_blob_id");
             localStorage.removeItem("sync_token");
             location.reload();
         }
         
         async function connect() {
-            let token = getSavedToken();
-            if (!token) {
-                document.getElementById('status').innerHTML = `<span style="color:red;">Token required to connect!</span>`;
+            let creds = getCredentials();
+            if (!creds) {
+                document.getElementById('title').innerText = "Setup Required";
+                document.getElementById('status').innerHTML = "<span style='color:red;'>Credentials missing. Tap reset below to configure.</span>";
                 return;
             }
 
             try {
-                let res = await fetch(`https://jsonblob.com/api/jsonBlob/${BLOB_ID}`);
+                let res = await fetch(`https://jsonblob.com/api/jsonBlob/${creds.blobId}`);
+                if (!res.ok) throw new Error();
                 let data = await res.json();
                 
                 if (data.ip) {
-                    document.getElementById('status').innerText = `Found laptop at ${data.ip}! Redirecting...`;
-                    // Redirects to your laptop using the IP from the cloud + token from offline phone memory
-                    window.location.replace(`http://${data.ip}:5000?token=${encodeURIComponent(token)}`);
+                    document.getElementById('status').innerText = `Authenticating with ${data.ip}...`;
+                    
+                    let form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `http://${data.ip}:5000/login`;
+                    
+                    let input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'token';
+                    input.value = creds.token;
+                    
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
                 } else {
-                    throw new Error("Invalid payload received from beacon.");
+                    throw new Error();
                 }
             } catch (e) {
-                document.getElementById('status').innerHTML = `<span style="color:red;">Failed to locate PC.<br><br>Is python sync_server.py running on your laptop?</span>`;
+                document.getElementById('title').innerText = "Connection Failed";
+                document.getElementById('status').innerHTML = "<span style='color:red;'>Could not locate laptop.<br><br>1. Is python sync_server.py running?<br>2. Are your saved credentials correct?</span>";
             }
         }
         
