@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting to Hotspot...</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f9f9f9; color: #333; }
+    </style>
+    <script>
+        const GIST_ID = "8865a686ebec4a9904a2015c0c8c0ee7";
+        const PORT = "5000";
+
+        async function connect() {
+            try {
+                // Fetch latest IP from Gist (with cache busting)
+                let res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=` + new Date().getTime());
+                if (!res.ok) throw new Error("Failed to read Gist.");
+                let data = await res.json();
+                
+                let content = JSON.parse(data.files['ip.json'].content);
+                let ip = content.ip;
+
+                document.body.innerHTML = `<h3>Found PC at ${ip}... Connecting...</h3>`;
+
+                // Perform a seamless top-level redirect (No warnings, no cookies)
+                window.location.replace(`http://${ip}:${PORT}/`);
+
+            } catch (err) {
+                document.body.innerHTML = `
+                    <h3>❌ Connection Failed</h3>
+                    <p>Could not read IP from Gist or PC is offline.</p>
+                    <small>Error: ${err.message}</small>
+                `;
+            }
+        }
+
+        window.onload = connect;
+    </script>
+</head>
+<body>
+    <h3>Searching for your local server...</h3>
+</body>
+</html>
