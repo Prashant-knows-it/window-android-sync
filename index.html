@@ -2,82 +2,68 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connecting...</title>
+    <title>Connecting to Hotspot Hub...</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f0f2f5; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 85%; }
-        button { margin-top: 20px; padding: 10px 18px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 6px; }
-        button:active { background: #eee; }
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f9f9f9; color: #333; }
+        button { margin-top: 20px; padding: 10px 15px; font-size: 14px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; }
+        button:hover { background: #eee; }
     </style>
-</head>
-<body>
-    <div class="card">
-        <h3 id="title">Locating Laptop...</h3>
-        <p id="status">Reading cloud beacon...</p>
-        <button onclick="resetConfig()">⚙️ Reset Saved Credentials</button>
-    </div>
-
     <script>
-        function getCredentials() {
-            let blobId = localStorage.getItem("sync_blob_id");
-            let token = localStorage.getItem("sync_token");
-            
-            if (!blobId || !token) {
-                blobId = prompt("Setup (1/2): Paste your Blob ID:");
-                if (!blobId) return null;
-                token = prompt("Setup (2/2): Enter your Secret Token:");
-                if (!token) return null;
-                
-                localStorage.setItem("sync_blob_id", blobId.trim());
-                localStorage.setItem("sync_token", token.trim());
-            }
-            return { blobId, token };
-        }
+        const GIST_ID = "8865a686ebec4a9904a2015c0c8c0ee7";
+        const PORT = "5000";
 
-        function resetConfig() {
-            localStorage.removeItem("sync_blob_id");
-            localStorage.removeItem("sync_token");
-            location.reload();
-        }
-        
         async function connect() {
-            let creds = getCredentials();
-            if (!creds) {
-                document.getElementById('title').innerText = "Setup Required";
-                document.getElementById('status').innerHTML = "<span style='color:red;'>Credentials missing. Tap reset below to configure.</span>";
-                return;
-            }
-
             try {
-                let res = await fetch(`https://jsonblob.com/api/jsonBlob/${creds.blobId}`);
-                if (!res.ok) throw new Error();
+                // 1. Retrieve saved token OR prompt the user for it (never exposed in public code)
+                let token = localStorage.getItem('hub_token');
+                if (!token) {
+                    token = prompt("Enter your Hotspot Hub Secret Token:");
+                    if (!token) throw new Error("Authentication cancelled: Token is required.");
+                    localStorage.setItem('hub_token', token);
+                }
+
+                // 2. Fetch the latest IP from Gist (cache-busted with current timestamp)
+                let res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=` + new Date().getTime());
+                if (!res.ok) throw new Error("Failed to read IP address from Gist.");
                 let data = await res.json();
                 
-                if (data.ip) {
-                    document.getElementById('status').innerText = `Authenticating with ${data.ip}...`;
-                    
-                    let form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = `http://${data.ip}:5000/login`;
-                    
-                    let input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'token';
-                    input.value = creds.token;
-                    
-                    form.appendChild(input);
-                    document.body.appendChild(form);
-                    form.submit();
-                } else {
-                    throw new Error();
-                }
-            } catch (e) {
-                document.getElementById('title').innerText = "Connection Failed";
-                document.getElementById('status').innerHTML = "<span style='color:red;'>Could not locate laptop.<br><br>1. Is python sync_server.py running?<br>2. Are your saved credentials correct?</span>";
+                let content = JSON.parse(data.files['ip.json'].content);
+                let ip = content.ip;
+
+                document.body.innerHTML = `<h3>Found PC at ${ip}... Authenticating...</h3>`;
+
+                // 3. Build hidden form and submit to local PC server
+                let form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `http://${ip}:${PORT}/login`;
+
+                let tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = 'token';
+                tokenInput.value = token;
+
+                form.appendChild(tokenInput);
+                document.body.appendChild(form);
+                form.submit();
+
+            } catch (err) {
+                document.body.innerHTML = `
+                    <h3>❌ Connection Failed</h3>
+                    <p>${err.message}</p>
+                    <button onclick="resetToken()">Reset Saved Token</button>
+                `;
             }
         }
-        
-        connect();
+
+        function resetToken() {
+            localStorage.removeItem('hub_token');
+            location.reload();
+        }
+
+        window.onload = connect;
     </script>
+</head>
+<body>
+    <h3>Searching for your local server...</h3>
 </body>
 </html>
