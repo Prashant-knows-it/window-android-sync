@@ -2,11 +2,9 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connecting to Hotspot Hub...</title>
+    <title>Connecting to Hotspot...</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f9f9f9; color: #333; }
-        button { margin-top: 20px; padding: 10px 15px; font-size: 14px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; }
-        button:hover { background: #eee; }
     </style>
     <script>
         const GIST_ID = "8865a686ebec4a9904a2015c0c8c0ee7";
@@ -14,50 +12,26 @@
 
         async function connect() {
             try {
-                // 1. Retrieve saved token OR prompt the user for it (never exposed in public code)
-                let token = localStorage.getItem('hub_token');
-                if (!token) {
-                    token = prompt("Enter your Hotspot Hub Secret Token:");
-                    if (!token) throw new Error("Authentication cancelled: Token is required.");
-                    localStorage.setItem('hub_token', token);
-                }
-
-                // 2. Fetch the latest IP from Gist (cache-busted with current timestamp)
+                // Fetch latest IP from Gist (with cache busting)
                 let res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=` + new Date().getTime());
-                if (!res.ok) throw new Error("Failed to read IP address from Gist.");
+                if (!res.ok) throw new Error("Failed to read Gist.");
                 let data = await res.json();
                 
                 let content = JSON.parse(data.files['ip.json'].content);
                 let ip = content.ip;
 
-                document.body.innerHTML = `<h3>Found PC at ${ip}... Authenticating...</h3>`;
+                document.body.innerHTML = `<h3>Found PC at ${ip}... Connecting...</h3>`;
 
-                // 3. Build hidden form and submit to local PC server
-                let form = document.createElement('form');
-                form.method = 'POST';
-                form.action = `http://${ip}:${PORT}/login`;
-
-                let tokenInput = document.createElement('input');
-                tokenInput.type = 'hidden';
-                tokenInput.name = 'token';
-                tokenInput.value = token;
-
-                form.appendChild(tokenInput);
-                document.body.appendChild(form);
-                form.submit();
+                // Perform a seamless top-level redirect (No warnings, no cookies)
+                window.location.replace(`http://${ip}:${PORT}/`);
 
             } catch (err) {
                 document.body.innerHTML = `
                     <h3>❌ Connection Failed</h3>
-                    <p>${err.message}</p>
-                    <button onclick="resetToken()">Reset Saved Token</button>
+                    <p>Could not read IP from Gist or PC is offline.</p>
+                    <small>Error: ${err.message}</small>
                 `;
             }
-        }
-
-        function resetToken() {
-            localStorage.removeItem('hub_token');
-            location.reload();
         }
 
         window.onload = connect;
