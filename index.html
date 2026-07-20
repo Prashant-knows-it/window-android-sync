@@ -12,7 +12,6 @@
 
         async function connect() {
             try {
-                // Fetch latest IP from Gist (with cache busting)
                 let res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=` + new Date().getTime());
                 if (!res.ok) throw new Error("Failed to read Gist.");
                 let data = await res.json();
@@ -21,8 +20,6 @@
                 let ip = content.ip;
 
                 document.body.innerHTML = `<h3>Found PC at ${ip}... Connecting...</h3>`;
-
-                // Perform a seamless top-level redirect (No warnings, no cookies)
                 window.location.replace(`http://${ip}:${PORT}/`);
 
             } catch (err) {
