@@ -153,3 +153,7 @@ This application binds to `0.0.0.0:5000`, meaning it is accessible to any device
 ```
 
 ```
+
+
+If you accidentally kill your own port then you can re start it. open cmd as administrator
+netsh advfirewall firewall add rule name="Hotspot Flask 5000" dir=in action=allow protocol=TCP localport=5000
